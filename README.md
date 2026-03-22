@@ -1,4 +1,4 @@
-# 🌤️ WeatherIQ — Full Stack Flask App
+# 🌤️ Weather-Forecasting-Climate-Analysis-System
 
 ## 📁 Project Structure
 ```
