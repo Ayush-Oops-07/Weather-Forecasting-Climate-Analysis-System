@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: weatheriq-flask
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app --config gunicorn.conf.py
+    plan: free
+    envVars:
+      - key: WEATHER_API_KEY
+        sync: false          # Set manually in Render dashboard
+      - key: SECRET_KEY
+        generateValue: true  # Render will auto-generate a secure key
+      - key: FLASK_DEBUG
+        value: false
+      - key: CACHE_TIMEOUT
+        value: 600
+      - key: PYTHON_VERSION
+        value: 3.11.0
