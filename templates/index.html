@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Weather Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+
+<!-- BACKGROUND LAYERS -->
+<div class="stars" id="stars"></div>
+<div class="clouds-wrap" id="cloudsWrap"></div>
+<div class="rain-wrap" id="rainWrap"></div>
+<div class="sun-wrap" id="sunWrap"></div>
+<div class="moon-wrap" id="moonWrap"></div>
+
+<!-- LOADING OVERLAY -->
+<div class="loading-overlay" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text">Fetching weather…</div>
+</div>
+
+<!-- ML MODAL -->
+<div class="ml-modal-overlay" id="mlModalOverlay">
+  <div class="ml-modal" id="mlModal">
+    <div class="ml-modal-header">
+      <div class="ml-modal-title">
+        <span class="ml-brain">🧠</span>
+        <div>
+          <div class="ml-modal-heading">Historical Weather Prediction</div>
+          <div class="ml-modal-sub">ML Model · 13 Indian cities</div>
+        </div>
+      </div>
+      <button class="ml-modal-close" id="mlModalClose">✕</button>
+    </div>
+    <div class="ml-city-select-wrap">
+      <div class="ml-select-label">Select a city to predict</div>
+      <div class="ml-city-grid" id="mlCityGrid">
+        {% for city in ['Jaipur','Lucknow','Ajmer','Hyderabad','Bangalore','Kolkata','Mumbai','Kochi','Pune','Chennai','New Delhi','Surat','Bhopal'] %}
+        <div class="ml-city-btn" data-city="{{ city }}">{{ city }}</div>
+        {% endfor %}
+      </div>
+    </div>
+    <div class="ml-result" id="mlResult" style="display:none">
+      <div class="ml-result-city" id="mlResultCity"></div>
+      <div class="ml-result-grid">
+        <div class="ml-result-item temp-item">
+          <div class="ml-result-icon">🌡️</div>
+          <div class="ml-result-label">Predicted Temp</div>
+          <div class="ml-result-val" id="mlResultTemp">--</div>
+          <div class="ml-result-unit">°C</div>
+        </div>
+        <div class="ml-result-item rain-item">
+          <div class="ml-result-icon">🌧️</div>
+          <div class="ml-result-label">Rain Probability</div>
+          <div class="ml-result-val" id="mlResultRain">--</div>
+          <div class="ml-result-unit">%</div>
+        </div>
+      </div>
+      <div class="ml-rain-bar-wrap">
+        <div class="ml-rain-bar-bg"><div class="ml-rain-bar-fill" id="mlRainBar" style="width:0%"></div></div>
+        <div class="ml-rain-labels"><span>Dry</span><span>Likely Rain</span></div>
+      </div>
+      <div class="ml-result-note">⚡ Live features → your trained ML model</div>
+    </div>
+    <div class="ml-loading" id="mlLoading" style="display:none">
+      <div class="ml-spinner"></div><span>Running prediction…</span>
+    </div>
+    <div class="ml-error" id="mlError" style="display:none"></div>
+  </div>
+</div>
+
+<!-- ══ TOP NAV ══ -->
+<nav class="top-nav">
+  <div class="nav-brand">
+    <span class="nav-brand-icon">🌤️</span>
+    <span class="nav-brand-name">WeatherIQ</span>
+  </div>
+
+  <!-- SEARCH BAR -->
+  <div class="search-bar">
+    <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+    </svg>
+    <input type="text" id="cityInput" placeholder="Search city…" value="Chennai" autocomplete="off"/>
+    <div class="search-suggestions" id="searchSuggestions"></div>
+    <button class="loc-btn" id="locBtn" title="Use my location">📍</button>
+    <button class="search-btn" id="searchBtn">Search</button>
+  </div>
+
+  <!-- USER MENU -->
+  <div class="user-menu">
+    <div class="user-avatar" id="userAvatarBtn">
+      {{ current_user.username[0].upper() }}
+    </div>
+    <div class="user-dropdown" id="userDropdown">
+      <div class="user-info">
+        <div class="user-name">{{ current_user.username }}</div>
+        <div class="user-email">{{ current_user.email }}</div>
+      </div>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-section-title">⭐ Favourites</div>
+      <div id="favList" class="dropdown-city-list">
+        {% for city in favourites %}
+        <div class="dropdown-city" onclick="fetchWeather('{{ city }}')">{{ city }}</div>
+        {% else %}
+        <div class="dropdown-empty">No favourites yet</div>
+        {% endfor %}
+      </div>
+      <div class="dropdown-divider"></div>
+      <div class="dropdown-section-title">🕐 Recent Searches</div>
+      <div id="recentList" class="dropdown-city-list">
+        {% for city in recent_cities %}
+        <div class="dropdown-city" onclick="fetchWeather('{{ city }}')">{{ city }}</div>
+        {% else %}
+        <div class="dropdown-empty">No recent searches</div>
+        {% endfor %}
+      </div>
+      <div class="dropdown-divider"></div>
+      <a href="/logout" class="dropdown-logout">🚪 Logout</a>
+    </div>
+  </div>
+</nav>
+<div class="error-msg" id="errorMsg"></div>
+
+<!-- MAIN GRID -->
+<div class="grid">
+
+  <!-- HERO -->
+  <div class="card hero" id="heroCard">
+    <div class="hero-top">
+      <div class="hero-city">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><circle cx="12" cy="10" r="3"/><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/></svg>
+        <span id="heroCity">Chennai</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button class="fav-btn" id="favBtn" title="Add to favourites" onclick="toggleFavourite()">☆</button>
+        <div class="hero-updated" id="heroUpdated">—</div>
+      </div>
+    </div>
+    <div class="hero-body">
+      <div class="hero-main">
+        <div class="hero-icon" id="heroIcon">⛅</div>
+        <div class="hero-temp"><span id="heroTemp">—</span> °C</div>
+        <div class="hero-cond" id="heroCond">Loading…</div>
+      </div>
+      <div class="hero-dots">
+        <div class="dot" style="background:#fff;opacity:.4"></div>
+        <div class="dot" style="background:#93c5fd"></div>
+        <div class="dot" style="background:#3b82f6"></div>
+        <div class="dot" style="background:#1d4ed8"></div>
+      </div>
+    </div>
+    <div class="cities-slider">
+      <button class="slider-arrow" id="sliderLeft">‹</button>
+      <div class="cities-track" id="citiesTrack">
+        {% for city in ['Jaipur','Lucknow','Ajmer','Hyderabad','Bangalore','Kolkata','Mumbai','Kochi','Pune','Chennai','New Delhi','Surat','Bhopal'] %}
+        <div class="city-pill" onclick="fetchWeather('{{ city }}')">
+          <div class="city-pill-name">{{ city }}</div>
+          <div class="city-pill-temp" id="pill-{{ city }}">--</div>
+        </div>
+        {% endfor %}
+      </div>
+      <button class="slider-arrow" id="sliderRight">›</button>
+    </div>
+  </div>
+
+  <!-- 10-DAY STRIP -->
+  <div class="card weekly-strip" id="weeklyStrip">
+    <div class="card-title" style="flex-shrink:0;margin-bottom:0;margin-right:6px">📅 10-Day</div>
+  </div>
+
+  <!-- SUNRISE & SUNSET -->
+  <div class="card sun-card">
+    <div class="card-title">🌅 Sunrise &amp; Sunset</div>
+    <div class="sun-row"><div class="sun-icon">🌄</div><div><div class="sun-label">Sunrise</div><div class="sun-time" id="sunriseTime">--</div></div></div>
+    <div class="sun-row"><div class="sun-icon">🌇</div><div><div class="sun-label">Sunset</div><div class="sun-time" id="sunsetTime">--</div></div></div>
+    <div class="sun-arc">
+      <svg viewBox="0 0 200 50" fill="none">
+        <path d="M10 45 Q100 -10 190 45" stroke="rgba(251,191,36,0.25)" stroke-width="2" fill="none" stroke-dasharray="4 4"/>
+        <circle id="sunPos" cx="10" cy="45" r="5" fill="#fbbf24" filter="url(#glow)"/>
+        <defs><filter id="glow"><feGaussianBlur stdDeviation="3" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+      </svg>
+    </div>
+  </div>
+
+  <!-- HOURLY -->
+  <div class="card hourly-strip" id="hourlyStrip">
+    <div class="card-title" style="flex-shrink:0;margin-bottom:0;margin-right:6px">🕐 Hourly</div>
+  </div>
+
+  <!-- FORECAST CHART -->
+  <div class="card forecast-chart">
+    <div class="card-title">📈 Weather Forecast (24h)</div>
+    <div class="chart-wrap"><canvas id="forecastChart"></canvas></div>
+  </div>
+
+  <!-- STATS -->
+  <div class="stats-row">
+    <div class="stat-card"><div class="stat-lbl">💧 Humidity</div><div class="stat-val"><span id="humidVal">--</span><span class="stat-unit">%</span></div></div>
+    <div class="stat-card"><div class="stat-lbl">💨 Wind</div><div class="stat-val"><span id="windVal">--</span><span class="stat-unit">kph</span></div></div>
+    <div class="stat-card"><div class="stat-lbl">👁 Visibility</div><div class="stat-val"><span id="visVal">--</span><span class="stat-unit">km</span></div></div>
+    <div class="stat-card"><div class="stat-lbl">🌡 Pressure</div><div class="stat-val"><span id="pressVal">--</span><span class="stat-unit">mb</span></div></div>
+    <div class="stat-card"><div class="stat-lbl">☀️ UV Index</div><div class="stat-val"><span id="uvVal">--</span></div></div>
+    <div class="stat-card"><div class="stat-lbl">🌧 Precip</div><div class="stat-val"><span id="precipVal">--</span><span class="stat-unit">mm</span></div></div>
+  </div>
+
+  <!-- AQI -->
+  <div class="card aqi-card">
+    <div class="aqi-inner">
+      <div class="card-title" style="margin-bottom:0">Air Quality</div>
+      <div class="aqi-gauge">
+        <svg viewBox="0 0 120 120" fill="none">
+          <circle cx="60" cy="60" r="50" stroke="rgba(255,255,255,0.06)" stroke-width="10"/>
+          <circle cx="60" cy="60" r="50" id="aqiRing" stroke="#22c55e" stroke-width="10"
+            stroke-dasharray="314" stroke-dashoffset="240" stroke-linecap="round"
+            transform="rotate(-90 60 60)" style="transition:stroke-dashoffset 1.2s ease,stroke 0.6s"/>
+        </svg>
+        <div class="aqi-center">
+          <div class="aqi-num" id="aqiNum" style="color:#22c55e">--</div>
+          <div class="aqi-label" id="aqiLabel" style="color:#22c55e">--</div>
+        </div>
+      </div>
+      <div class="aqi-sub" id="aqiSub">Fetching…</div>
+    </div>
+    <div class="aqi-grid" id="aqiGrid">
+      <div class="aqi-item"><div class="aqi-dot" style="background:#555"></div><div><div class="aqi-item-val">--</div><div class="aqi-item-name">PM10</div></div></div>
+      <div class="aqi-item"><div class="aqi-dot" style="background:#555"></div><div><div class="aqi-item-val">--</div><div class="aqi-item-name">O3</div></div></div>
+      <div class="aqi-item"><div class="aqi-dot" style="background:#555"></div><div><div class="aqi-item-val">--</div><div class="aqi-item-name">SO2</div></div></div>
+      <div class="aqi-item"><div class="aqi-dot" style="background:#555"></div><div><div class="aqi-item-val">--</div><div class="aqi-item-name">PM2.5</div></div></div>
+      <div class="aqi-item"><div class="aqi-dot" style="background:#555"></div><div><div class="aqi-item-val">--</div><div class="aqi-item-name">CO</div></div></div>
+      <div class="aqi-item"><div class="aqi-dot" style="background:#555"></div><div><div class="aqi-item-val">--</div><div class="aqi-item-name">NO2</div></div></div>
+    </div>
+  </div>
+
+  <!-- RIGHT COLUMN -->
+  <div class="right-col">
+    <!-- ML Card -->
+    <div class="ml-entry-card" onclick="openMlModal()">
+      <div class="ml-entry-glow"></div>
+      <div class="ml-entry-content">
+        <div class="ml-entry-icon">🧠</div>
+        <div class="ml-entry-text">
+          <div class="ml-entry-title">Search Historical Weather</div>
+          <div class="ml-entry-desc">Predict temp &amp; rain via ML model</div>
+        </div>
+        <div class="ml-entry-arrow">
+          <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        </div>
+      </div>
+      <div class="ml-entry-badges">
+        <span class="ml-badge">13 Cities</span>
+        <span class="ml-badge">Temp Model</span>
+        <span class="ml-badge">Rain Model</span>
+      </div>
+    </div>
+    <!-- Rain Chances -->
+    <div class="rain-card">
+      <div class="card-title">🌧️ Chances of Rain</div>
+      <div id="rainRows"></div>
+      <div class="rain-axis"><span>0%</span><span>50%</span><span>100%</span></div>
+    </div>
+    <!-- Compass -->
+    <div class="compass-card">
+      <div class="card-title" style="margin-bottom:0">🧭 Wind Direction</div>
+      <div class="compass-outer">
+        <div class="compass-ring">
+          <span class="compass-label N">N</span><span class="compass-label S">S</span>
+          <span class="compass-label E">E</span><span class="compass-label W">W</span>
+          <div class="compass-needle-wrap" id="compassNeedleWrap">
+            <div class="compass-needle">
+              <div class="needle-north"></div>
+              <div class="needle-south"></div>
+              <div class="needle-center"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="compass-info">
+        <div class="compass-deg"><span id="compassDeg">--</span>°</div>
+        <div class="compass-dir" id="compassDir">--</div>
+        <div class="compass-spd">Wind <span id="compassSpd">--</span> kph &middot; Gusts <span id="compassGust">--</span> kph</div>
+      </div>
+    </div>
+  </div>
+
+</div><!-- /grid -->
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>

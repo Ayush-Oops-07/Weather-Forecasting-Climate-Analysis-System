@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ 'Sign Up' if mode == 'signup' else 'Login' }} — Weather Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --orange:#f97316;--orange2:#fb923c;
+  --purple:#a855f7;--purple2:#c084fc;
+  --bg:#090e18;--card:rgba(18,24,38,0.92);
+  --border:rgba(255,255,255,0.08);
+  --text:#e8edf5;--muted:#7a8499;
+  --green:#22c55e;--red:#ef4444;
+}
+html,body{height:100%}
+body{
+  font-family:'Outfit',sans-serif;color:var(--text);
+  background:var(--bg);display:flex;align-items:center;
+  justify-content:center;min-height:100vh;padding:20px;
+  position:relative;overflow:hidden;
+}
+
+/* Animated background */
+body::before{
+  content:'';position:fixed;inset:0;z-index:0;
+  background:radial-gradient(ellipse at 20% 50%,rgba(249,115,22,0.07) 0%,transparent 60%),
+             radial-gradient(ellipse at 80% 20%,rgba(168,85,247,0.08) 0%,transparent 60%),
+             radial-gradient(ellipse at 60% 80%,rgba(59,130,246,0.06) 0%,transparent 60%),
+             linear-gradient(180deg,#060a12 0%,#090d18 100%);
+}
+.bg-orb{
+  position:fixed;border-radius:50%;filter:blur(80px);
+  pointer-events:none;z-index:0;animation:float 8s ease-in-out infinite alternate;
+}
+.orb1{width:300px;height:300px;background:rgba(249,115,22,0.12);top:-100px;left:-100px}
+.orb2{width:250px;height:250px;background:rgba(168,85,247,0.1);bottom:-80px;right:-80px;animation-delay:3s}
+.orb3{width:200px;height:200px;background:rgba(59,130,246,0.08);top:50%;right:20%;animation-delay:5s}
+@keyframes float{0%{transform:translateY(0) scale(1)}100%{transform:translateY(-30px) scale(1.05)}}
+
+/* Floating particles */
+.particles{position:fixed;inset:0;z-index:0;pointer-events:none;overflow:hidden}
+.particle{
+  position:absolute;border-radius:50%;background:rgba(255,255,255,0.4);
+  animation:rise linear infinite;
+}
+@keyframes rise{0%{transform:translateY(100vh) rotate(0deg);opacity:0}10%{opacity:1}90%{opacity:0.5}100%{transform:translateY(-10vh) rotate(720deg);opacity:0}}
+
+/* Card */
+.auth-wrap{
+  position:relative;z-index:10;width:100%;max-width:440px;
+}
+.brand{text-align:center;margin-bottom:28px}
+.brand-icon{font-size:42px;line-height:1;display:block;margin-bottom:8px}
+.brand-name{font-size:22px;font-weight:700;color:#fff;letter-spacing:-0.5px}
+.brand-sub{font-size:13px;color:var(--muted);margin-top:3px}
+
+.card{
+  background:var(--card);
+  border:1px solid var(--border);
+  border-radius:24px;padding:32px;
+  backdrop-filter:blur(24px);
+  box-shadow:0 40px 80px rgba(0,0,0,0.5),
+             inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* Tabs */
+.tabs{display:flex;background:rgba(255,255,255,0.04);border-radius:12px;padding:4px;margin-bottom:28px}
+.tab-btn{
+  flex:1;padding:9px;border-radius:9px;border:none;
+  font-family:inherit;font-size:14px;font-weight:600;
+  cursor:pointer;transition:all 0.25s;color:var(--muted);background:none;
+}
+.tab-btn.active{background:var(--orange);color:#fff;box-shadow:0 2px 12px rgba(249,115,22,0.35)}
+
+/* Form */
+.form-group{margin-bottom:16px}
+.form-label{
+  display:block;font-size:12px;font-weight:600;color:var(--muted);
+  text-transform:uppercase;letter-spacing:0.07em;margin-bottom:7px;
+}
+.input-wrap{position:relative}
+.input-icon{
+  position:absolute;left:14px;top:50%;transform:translateY(-50%);
+  font-size:16px;pointer-events:none;
+}
+.form-input{
+  width:100%;background:rgba(255,255,255,0.05);
+  border:1px solid var(--border);border-radius:12px;
+  padding:12px 14px 12px 42px;
+  color:var(--text);font-family:inherit;font-size:14px;
+  outline:none;transition:border-color 0.2s,box-shadow 0.2s;
+}
+.form-input:focus{border-color:var(--orange);box-shadow:0 0 0 3px rgba(249,115,22,0.15)}
+.form-input::placeholder{color:var(--muted)}
+.form-input.error{border-color:var(--red)}
+.form-input.success{border-color:var(--green)}
+
+/* Password toggle */
+.pass-toggle{
+  position:absolute;right:14px;top:50%;transform:translateY(-50%);
+  background:none;border:none;cursor:pointer;color:var(--muted);
+  font-size:16px;padding:0;transition:color 0.2s;
+}
+.pass-toggle:hover{color:var(--text)}
+
+/* Remember + Forgot */
+.form-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+.remember{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--muted);cursor:pointer}
+.remember input[type=checkbox]{
+  width:16px;height:16px;accent-color:var(--orange);cursor:pointer;
+}
+.forgot-link{font-size:13px;color:var(--orange);text-decoration:none;transition:color 0.2s}
+.forgot-link:hover{color:var(--orange2)}
+
+/* Submit button */
+.submit-btn{
+  width:100%;padding:13px;border:none;border-radius:12px;
+  background:linear-gradient(135deg,var(--orange),var(--orange2));
+  color:#fff;font-family:inherit;font-size:15px;font-weight:700;
+  cursor:pointer;transition:all 0.2s;
+  box-shadow:0 4px 20px rgba(249,115,22,0.35);
+  position:relative;overflow:hidden;
+}
+.submit-btn:hover{transform:translateY(-1px);box-shadow:0 8px 28px rgba(249,115,22,0.45)}
+.submit-btn:active{transform:translateY(0)}
+.submit-btn.loading{pointer-events:none;opacity:0.8}
+.btn-text{transition:opacity 0.2s}
+.btn-spinner{
+  display:none;position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  width:20px;height:20px;border:2px solid rgba(255,255,255,0.3);
+  border-top-color:#fff;border-radius:50%;animation:spin 0.7s linear infinite;
+}
+.submit-btn.loading .btn-text{opacity:0}
+.submit-btn.loading .btn-spinner{display:block}
+@keyframes spin{to{transform:translate(-50%,-50%) rotate(360deg)}}
+
+/* Divider */
+.divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted);font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:var(--border)}
+
+/* Alerts */
+.alert{
+  border-radius:10px;padding:10px 14px;font-size:13px;
+  margin-bottom:16px;display:none;
+}
+.alert.show{display:block}
+.alert-error{background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.25);color:#fca5a5}
+.alert-success{background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.25);color:#86efac}
+.alert ul{list-style:none;padding:0}
+.alert ul li::before{content:'• ';color:var(--red)}
+
+/* Password strength */
+.strength-bar{height:3px;border-radius:2px;background:rgba(255,255,255,0.07);margin-top:6px;overflow:hidden}
+.strength-fill{height:100%;border-radius:2px;transition:width 0.3s,background 0.3s;width:0}
+.strength-text{font-size:11px;color:var(--muted);margin-top:4px}
+
+/* Bottom link */
+.auth-footer{text-align:center;margin-top:22px;font-size:13px;color:var(--muted)}
+.auth-footer a{color:var(--orange);text-decoration:none;font-weight:600}
+.auth-footer a:hover{color:var(--orange2)}
+
+/* Responsive */
+@media(max-width:480px){
+  .card{padding:24px 18px;border-radius:18px}
+  body{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<div class="bg-orb orb1"></div>
+<div class="bg-orb orb2"></div>
+<div class="bg-orb orb3"></div>
+<div class="particles" id="particles"></div>
+
+<div class="auth-wrap">
+  <!-- Brand -->
+  <div class="brand">
+    <span class="brand-icon">🌤️</span>
+    <div class="brand-name">Weather Dashboard</div>
+    <div class="brand-sub">Real-time weather intelligence</div>
+  </div>
+
+  <div class="card">
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn {% if mode=='login' %}active{% endif %}" id="tabLogin" onclick="switchTab('login')">Login</button>
+      <button class="tab-btn {% if mode=='signup' %}active{% endif %}" id="tabSignup" onclick="switchTab('signup')">Sign Up</button>
+    </div>
+
+    <!-- Error / Success alerts -->
+    <div class="alert alert-error" id="alertError"></div>
+    <div class="alert alert-success" id="alertSuccess"></div>
+
+    <!-- ── LOGIN FORM ── -->
+    <form id="loginForm" {% if mode=='signup' %}style="display:none"{% endif %}>
+      <div class="form-group">
+        <label class="form-label">Username or Email</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" name="identifier" class="form-input" placeholder="Enter username or email" autocomplete="username" required/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" name="password" id="loginPass" class="form-input" placeholder="Enter password" autocomplete="current-password" required/>
+          <button type="button" class="pass-toggle" onclick="togglePass('loginPass',this)">👁️</button>
+        </div>
+      </div>
+      <div class="form-row">
+        <label class="remember">
+          <input type="checkbox" name="remember"/> Remember me
+        </label>
+        <a href="#" class="forgot-link">Forgot password?</a>
+      </div>
+      <button type="submit" class="submit-btn" id="loginBtn">
+        <span class="btn-text">Login →</span>
+        <div class="btn-spinner"></div>
+      </button>
+    </form>
+
+    <!-- ── SIGNUP FORM ── -->
+    <form id="signupForm" {% if mode=='login' %}style="display:none"{% endif %}>
+      <div class="form-group">
+        <label class="form-label">Username</label>
+        <div class="input-wrap">
+          <span class="input-icon">👤</span>
+          <input type="text" name="username" class="form-input" placeholder="Choose a username" autocomplete="username" required minlength="3"/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email Address</label>
+        <div class="input-wrap">
+          <span class="input-icon">📧</span>
+          <input type="email" name="email" class="form-input" placeholder="Enter your email" autocomplete="email" required/>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" name="password" id="signupPass" class="form-input" placeholder="Create a password" autocomplete="new-password" required oninput="checkStrength(this.value)"/>
+          <button type="button" class="pass-toggle" onclick="togglePass('signupPass',this)">👁️</button>
+        </div>
+        <div class="strength-bar"><div class="strength-fill" id="strengthFill"></div></div>
+        <div class="strength-text" id="strengthText">Enter a password</div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Confirm Password</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" name="confirm_password" id="confirmPass" class="form-input" placeholder="Repeat your password" autocomplete="new-password" required/>
+          <button type="button" class="pass-toggle" onclick="togglePass('confirmPass',this)">👁️</button>
+        </div>
+      </div>
+      <button type="submit" class="submit-btn" id="signupBtn">
+        <span class="btn-text">Create Account →</span>
+        <div class="btn-spinner"></div>
+      </button>
+    </form>
+
+    <!-- Footer -->
+    <div class="auth-footer" id="authFooter">
+      {% if mode == 'login' %}
+        Don't have an account? <a href="#" onclick="switchTab('signup')">Sign up free</a>
+      {% else %}
+        Already have an account? <a href="#" onclick="switchTab('login')">Login</a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Particles ──
+(function(){
+  const wrap=document.getElementById('particles');
+  for(let i=0;i<18;i++){
+    const p=document.createElement('div');p.className='particle';
+    const sz=Math.random()*3+1;
+    p.style.cssText=`width:${sz}px;height:${sz}px;left:${Math.random()*100}%;
+      animation-duration:${Math.random()*12+8}s;
+      animation-delay:${Math.random()*8}s;
+      opacity:${Math.random()*0.4+0.1}`;
+    wrap.appendChild(p);
+  }
+})();
+
+// ── Tab Switch ──
+function switchTab(mode){
+  const isLogin=mode==='login';
+  document.getElementById('loginForm').style.display=isLogin?'block':'none';
+  document.getElementById('signupForm').style.display=isLogin?'none':'block';
+  document.getElementById('tabLogin').classList.toggle('active',isLogin);
+  document.getElementById('tabSignup').classList.toggle('active',!isLogin);
+  document.getElementById('authFooter').innerHTML=isLogin
+    ?`Don't have an account? <a href="#" onclick="switchTab('signup')">Sign up free</a>`
+    :`Already have an account? <a href="#" onclick="switchTab('login')">Login</a>`;
+  clearAlerts();
+}
+
+// ── Password Toggle ──
+function togglePass(id,btn){
+  const inp=document.getElementById(id);
+  const isPass=inp.type==='password';
+  inp.type=isPass?'text':'password';
+  btn.textContent=isPass?'🙈':'👁️';
+}
+
+// ── Password Strength ──
+function checkStrength(val){
+  const fill=document.getElementById('strengthFill');
+  const txt=document.getElementById('strengthText');
+  let score=0;
+  if(val.length>=6)score++;
+  if(val.length>=10)score++;
+  if(/[A-Z]/.test(val))score++;
+  if(/[0-9]/.test(val))score++;
+  if(/[^A-Za-z0-9]/.test(val))score++;
+  const levels=[
+    {pct:0,color:'transparent',label:'Enter a password'},
+    {pct:20,color:'#ef4444',label:'Very Weak'},
+    {pct:40,color:'#f97316',label:'Weak'},
+    {pct:60,color:'#eab308',label:'Fair'},
+    {pct:80,color:'#22c55e',label:'Strong'},
+    {pct:100,color:'#16a34a',label:'Very Strong'},
+  ];
+  const l=levels[score];
+  fill.style.width=l.pct+'%';
+  fill.style.background=l.color;
+  txt.textContent=l.label;
+  txt.style.color=l.color;
+}
+
+// ── Alerts ──
+function showError(msgs){
+  const el=document.getElementById('alertError');
+  el.innerHTML=Array.isArray(msgs)?`<ul>${msgs.map(m=>`<li>${m}</li>`).join('')}</ul>`:msgs;
+  el.classList.add('show');
+  document.getElementById('alertSuccess').classList.remove('show');
+}
+function showSuccess(msg){
+  const el=document.getElementById('alertSuccess');
+  el.textContent=msg; el.classList.add('show');
+  document.getElementById('alertError').classList.remove('show');
+}
+function clearAlerts(){
+  document.getElementById('alertError').classList.remove('show');
+  document.getElementById('alertSuccess').classList.remove('show');
+}
+
+// ── Set loading state ──
+function setLoading(btnId,loading){
+  const btn=document.getElementById(btnId);
+  btn.classList.toggle('loading',loading);
+}
+
+// ── Login Submit ──
+document.getElementById('loginForm').addEventListener('submit',async(e)=>{
+  e.preventDefault(); clearAlerts();
+  setLoading('loginBtn',true);
+  const form=new FormData(e.target);
+  try{
+    const r=await fetch('/login',{method:'POST',body:form});
+    const d=await r.json();
+    if(d.success){
+      showSuccess('Login successful! Redirecting…');
+      setTimeout(()=>window.location.href=d.redirect,700);
+    }else{
+      showError(d.errors||['Login failed.']);
+    }
+  }catch{showError('Network error. Try again.');}
+  finally{setLoading('loginBtn',false);}
+});
+
+// ── Signup Submit ──
+document.getElementById('signupForm').addEventListener('submit',async(e)=>{
+  e.preventDefault(); clearAlerts();
+  const pass=document.getElementById('signupPass').value;
+  const conf=document.getElementById('confirmPass').value;
+  if(pass!==conf){showError(['Passwords do not match.']);return;}
+  setLoading('signupBtn',true);
+  const form=new FormData(e.target);
+  try{
+    const r=await fetch('/signup',{method:'POST',body:form});
+    const d=await r.json();
+    if(d.success){
+      showSuccess('Account created! Redirecting…');
+      setTimeout(()=>window.location.href=d.redirect,700);
+    }else{
+      showError(d.errors||['Signup failed.']);
+    }
+  }catch{showError('Network error. Try again.');}
+  finally{setLoading('signupBtn',false);}
+});
+</script>
+</body>
+</html>
